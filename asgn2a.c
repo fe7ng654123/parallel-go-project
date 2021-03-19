@@ -37,8 +37,10 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
     // }
 
     omp_set_num_threads(4);
-
-    #pragma omp parallel for ordered
+    int temp_max = 0;
+    int tmp_arrary[number];
+    memset (tmp_arrary, -1, sizeof(tmp_arrary));
+    #pragma omp parallel for reduction(+:permissiblePointNum )//ordered
     for (int i = 0; i < number; i++)
     {
         int flag = 1;
@@ -70,15 +72,35 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 
         if(flag){
             // printf("ID %d survived\n", i+1);
-            #pragma omp ordered
-            #pragma omp atomic update 
+            // #pragma omp ordered
+            // #pragma omp atomic update 
             permissiblePointNum++;
             // printf("permissiblePointNum = %d\n", permissiblePointNum);
-            permissiblePoints= realloc(permissiblePoints, permissiblePointNum*sizeof(Point));
-            memcpy(&permissiblePoints[permissiblePointNum-1],&points[i], sizeof(Point));
+            tmp_arrary[i]=i;
+            // if (permissiblePointNum>temp_max){
+            //     temp_max = permissiblePointNum;
+            //     printf("temp_max = %d\n", temp_max);
+            //     permissiblePoints= realloc(permissiblePoints, temp_max*sizeof(Point));
+            //     if (permissiblePoints){} 
+            //     else{ printf("realloc() failed"); }
+            // }
+            // memcpy(&permissiblePoints[permissiblePointNum-1],&points[i], sizeof(Point));
+            
         }
         
     }
+    printf("final permissiblePointNum = %d\n", permissiblePointNum);
+    permissiblePoints= realloc(permissiblePoints, permissiblePointNum*sizeof(Point));
+    int j = 0;
+    for (int i = 0; i < number; i++)
+    {
+        // printf("i=%d, tmp_arrary[i] = %d \n ",i, tmp_arrary[i]);
+        if (tmp_arrary[i] !=-1){
+            memcpy(&permissiblePoints[j],&points[tmp_arrary[i]], sizeof(Point));
+            j++;
+        }
+    }
+    
     
 
     printf("\n--------------end---------------\n\n");
