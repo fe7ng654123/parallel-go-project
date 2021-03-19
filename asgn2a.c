@@ -39,13 +39,13 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
     permissiblePoints= realloc(permissiblePoints, number*sizeof(Point));
 
     omp_set_num_threads(4);
-    // int temp_max = 0;
-    int tmp_arrary[number];
-    memset (tmp_arrary, -1, sizeof(tmp_arrary));
-    #pragma omp parallel for reduction(+:permissiblePointNum )//ordered
+
+    int flag[number];
+
+    #pragma omp parallel for reduction(+:permissiblePointNum) //ordered
     for (int i = 0; i < number; i++)
     {
-        int flag = 1;
+        flag[i] = 1;
         int counter = 0;
         for (int j = 0; j < number; j++)
         {
@@ -62,41 +62,37 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
             }
 
             if (counter==dim){
-                flag=0;
+                flag[i]=0;
                 // printf("ID %d prevails ID %d, ID %d is kicked out\n", j+1, i+1, i+1);
                 break;
             } 
             
         }
 
-        if(flag){
-            // printf("ID %d survived\n", i+1);
-            // #pragma omp ordered
-            // #pragma omp atomic update 
+        if(flag[i]){
             permissiblePointNum++;
-            // printf("permissiblePointNum = %d\n", permissiblePointNum);
-            tmp_arrary[i]=i;
-            
         }
         
     }
     printf("final permissiblePointNum = %d\n", permissiblePointNum);
-    
+
     int j = -1;
-    #pragma omp parallel for ordered
+    // #pragma omp parallel for ordered
     for (int i = 0; i < number; i++)
     {
-        
-        // j++;
-        // printf("i=%d, tmp_arrary[i] = %d \n ",i, tmp_arrary[i]);
-        if (tmp_arrary[i] !=-1){
-            #pragma omp ordered
-            #pragma omp para atomic capture
+        // #pragma omp ordered 
+        if (flag[i] ==1){
+            // #pragma omp atomic 
             j++;
-            // printf("i,j = %d , %d, tmp_arrary[i] = %d \n",i,j, tmp_arrary[i]);
-            memcpy(&permissiblePoints[j],&points[tmp_arrary[i]], sizeof(Point));
+            memcpy(&permissiblePoints[j],&points[i], sizeof(Point));
         }
     }
+
+    for (int i = 0; i < permissiblePointNum; i++)
+    {
+        /* code */
+    }
+    
     
     
 
