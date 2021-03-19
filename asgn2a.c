@@ -35,33 +35,29 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
     // {
     //     printf("value[%d] = %f\n", i, points->values[i]);
     // }
-    omp_set_num_threads(2);
-    int counter = 0;
-    int flag = 1;
 
-    // #pragma omp parallel for reduction(+:permissiblePointNum)
+    omp_set_num_threads(4);
+
+    #pragma omp parallel for ordered
     for (int i = 0; i < number; i++)
     {
-        // #pragma omp atomic 
-        flag = 1;
-        counter = 0;
+        int flag = 1;
+        int counter = 0;
         for (int j = 0; j < number; j++)
         {
             if(i==j)
                 continue;
-            // #pragma omp atomic 
             counter = 0;
             for (int k = 0; k < dim; k++)
-            {   // omp reduction here???
-                // printf(" i j k = %d %d %d\n", i , j , k);  
+            {   
+                // printf("threadId = %d, i j k = %d %d %d\n", omp_get_thread_num(),i , j , k);  
                 if (points[i].values[k] > points[j].values[k]){
-                    // #pragma omp atomic
                     counter++;
                     // printf("ID %d counter = %d\n",i+1, counter);
                 }
             }
+
             if (counter>=dim){
-                // #pragma omp atomic 
                 flag=0;
                 // printf("ID %d prevails ID %d, ID %d is kicked out\n", j+1, i+1, i+1);
             } 
@@ -74,7 +70,8 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 
         if(flag){
             // printf("ID %d survived\n", i+1);
-            // #pragma omp atomic
+            #pragma omp ordered
+            #pragma omp atomic update 
             permissiblePointNum++;
             // printf("permissiblePointNum = %d\n", permissiblePointNum);
             permissiblePoints= realloc(permissiblePoints, permissiblePointNum*sizeof(Point));
