@@ -39,8 +39,10 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
     permissiblePoints= realloc(permissiblePoints, number*sizeof(Point));
 
     omp_set_num_threads(4);
-
-    #pragma omp parallel for ordered
+    // int temp_max = 0;
+    int tmp_arrary[number];
+    memset (tmp_arrary, -1, sizeof(tmp_arrary));
+    #pragma omp parallel for reduction(+:permissiblePointNum )//ordered
     for (int i = 0; i < number; i++)
     {
         int flag = 1;
@@ -69,14 +71,33 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 
         if(flag){
             // printf("ID %d survived\n", i+1);
-            #pragma omp ordered
-            #pragma omp atomic update 
+            // #pragma omp ordered
+            // #pragma omp atomic update 
             permissiblePointNum++;
             // printf("permissiblePointNum = %d\n", permissiblePointNum);
-            memcpy(&permissiblePoints[permissiblePointNum-1],&points[i], sizeof(Point));
+            tmp_arrary[i]=i;
+            
         }
         
     }
+    printf("final permissiblePointNum = %d\n", permissiblePointNum);
+    
+    int j = -1;
+    #pragma omp parallel for ordered
+    for (int i = 0; i < number; i++)
+    {
+        
+        // j++;
+        // printf("i=%d, tmp_arrary[i] = %d \n ",i, tmp_arrary[i]);
+        if (tmp_arrary[i] !=-1){
+            #pragma omp ordered
+            #pragma omp para atomic capture
+            j++;
+            // printf("i,j = %d , %d, tmp_arrary[i] = %d \n",i,j, tmp_arrary[i]);
+            memcpy(&permissiblePoints[j],&points[tmp_arrary[i]], sizeof(Point));
+        }
+    }
+    
     
 
     printf("\n--------------end---------------\n\n");
