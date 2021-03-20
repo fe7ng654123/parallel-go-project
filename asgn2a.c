@@ -21,7 +21,6 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 	Point * permissiblePoints = NULL;
 
 	//the following for-loop iterates the first 20 points that will be inputted by runtest.c
-    
     // for(int i = 0; i < 20; i++)
     //     printPoint(points[i], dim);
 
@@ -29,23 +28,19 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 	 * Work here
 	 * *******************************************************************************/
     printf("\n--------------start---------------\n\n");
-	// printf("points->ID = %d, length = %ld \n",
-    //     points->ID, sizeof(points->values));
-    // for (int i = 0; i < sizeof(points->values); i++)
-    // {
-    //     printf("value[%d] = %f\n", i, points->values[i]);
-    // }
+
 
     permissiblePoints= realloc(permissiblePoints, number*sizeof(Point));
 
+    
+
     omp_set_num_threads(4);
-
-    int flag[number];
-
-    #pragma omp parallel for reduction(+:permissiblePointNum) //ordered
+    #pragma omp parallel for ordered//reduction(+:permissiblePointNum )
+    
     for (int i = 0; i < number; i++)
     {
-        flag[i] = 1;
+        int flag = 1;
+        int flag2 =0;
         int counter = 0;
         for (int j = 0; j < number; j++)
         {
@@ -55,44 +50,44 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
             for (int k = 0; k < dim; k++)
             {   
                 // printf("threadId = %d, i j k = %d %d %d\n", omp_get_thread_num(),i , j , k);  
-                if (points[i].values[k] > points[j].values[k]){
+                if (points[i].values[k] == points[j].values[k]){
                     counter++;
                     // printf("ID %d counter = %d\n",i+1, counter);
+                } else if(points[i].values[k] > points[j].values[k]){
+                    counter++;
+                    flag2=1;
                 }
+            // printf("%d\n", counter);
+                
+              
             }
 
-            if (counter==dim){
-                flag[i]=0;
+            if (flag2 && counter==dim){
+                flag=0;
                 // printf("ID %d prevails ID %d, ID %d is kicked out\n", j+1, i+1, i+1);
                 break;
             } 
             
         }
+        // if (i ==536733)
+        //     printf("ID = %d, values = %lf %lf %lf %lf \n",points[i].ID, points[i].values[0],points[i].values[1],points[i].values[2],points[i].values[3]);
 
-        if(flag[i]){
-            permissiblePointNum++;
+        if(flag){
+            // permissiblePointNum++;
+            // #pragma omp ordered
+            #pragma omp critical
+            memcpy(&permissiblePoints[permissiblePointNum++],&points[i], sizeof(Point));
+            // printf("%d\n", points[i].ID);
+            // printf("permissiblePointNum = %d\n", permissiblePointNum);
         }
         
     }
     printf("final permissiblePointNum = %d\n", permissiblePointNum);
-
-    int j = -1;
-    // #pragma omp parallel for ordered
-    for (int i = 0; i < number; i++)
-    {
-        // #pragma omp ordered 
-        if (flag[i] ==1){
-            // #pragma omp atomic 
-            j++;
-            memcpy(&permissiblePoints[j],&points[i], sizeof(Point));
-        }
-    }
-
-    for (int i = 0; i < permissiblePointNum; i++)
-    {
-        /* code */
-    }
     
+    // for (int i = 0; i < permissiblePointNum; i++)
+    // {
+    //     printf("permissiblePoints[%d].id = %d\n", i, permissiblePoints[i].ID);
+    // }
     
     
 
