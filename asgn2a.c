@@ -40,22 +40,24 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
     for (int i = 0; i < number; i++)
     {
         int flag = 1;
-        int flag2 =0;
-        int counter = 0;
+        // int flag2 =0;
+        // int counter = 0;
         for (int j = 0; j < number; j++)
         {
             if(i==j)
                 continue;
-            counter = 0;
+            int counter = 0;
+            int flag2 = 0 ;
             for (int k = 0; k < dim; k++)
             {   
                 // printf("threadId = %d, i j k = %d %d %d\n", omp_get_thread_num(),i , j , k);  
-                if (points[i].values[k] == points[j].values[k]){
-                    counter++;
-                    // printf("ID %d counter = %d\n",i+1, counter);
-                } else if(points[i].values[k] > points[j].values[k]){
+                if (points[i].values[k] > points[j].values[k]){
                     counter++;
                     flag2=1;
+                    // printf("ID %d counter = %d\n",i+1, counter);
+                } else if(points[i].values[k] == points[j].values[k]){
+                    counter++;
+                    // flag2=1;
                 }
             // printf("%d\n", counter);
                 
@@ -69,8 +71,6 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
             } 
             
         }
-        // if (i ==536733)
-        //     printf("ID = %d, values = %lf %lf %lf %lf \n",points[i].ID, points[i].values[0],points[i].values[1],points[i].values[2],points[i].values[3]);
 
         if(flag){
             // permissiblePointNum++;
@@ -83,11 +83,6 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
         
     }
     printf("final permissiblePointNum = %d\n", permissiblePointNum);
-    
-    // for (int i = 0; i < permissiblePointNum; i++)
-    // {
-    //     printf("permissiblePoints[%d].id = %d\n", i, permissiblePoints[i].ID);
-    // }
     
     
 
