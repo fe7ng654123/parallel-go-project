@@ -4,6 +4,8 @@
 #include<string.h>
 #include<unistd.h>
 #include <omp.h>
+#include <xmmintrin.h>
+#include <immintrin.h>
 #include"util.h"
 
 // If you have referenced to any source code that is not written by you
@@ -50,18 +52,20 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
             int flag2 = 0 ;
             for (int k = 0; k < dim; k++)
             {   
-                // printf("threadId = %d, i j k = %d %d %d\n", omp_get_thread_num(),i , j , k);  
-                if (points[i].values[k] > points[j].values[k]){
+                if (points[i].values[k] < points[j].values[k]){
+                    flag2 = 0;
+                    break;
+                }
+                else if (points[i].values[k] > points[j].values[k]){
                     counter++;
                     flag2=1;
                     // printf("ID %d counter = %d\n",i+1, counter);
-                } else if(points[i].values[k] == points[j].values[k]){
+                }
+                else if(points[i].values[k] == points[j].values[k]){
                     counter++;
                     // flag2=1;
                 }
-            // printf("%d\n", counter);
-                
-              
+                            
             }
 
             if (flag2 && counter==dim){
