@@ -47,11 +47,54 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 
 // } 
 
-    #pragma omp parallel for num_threads(4) schedule(dynamic, 1024) //reduction(+:permissiblePointNum )
+    #pragma omp parallel for num_threads(4) //schedule(dynamic, 1024) //reduction(+:permissiblePointNum )
     for (int i = 0; i < number; i++)
     {
         int flag = 1;
+
+        // compare candidta with known permissible points first, point i highly likely to be beaten by them.
+        for (int j = 0; j < permissiblePointNum; j++)
+        {
+            int counter = 0; //for counting numbers of greater of equal dimensions
+            union Point_U result_m; //for storing the bool table when comparing 2 points
+            if (dim ==5){
+            __m256 point1 = _mm256_setr_ps(
+                points[i].values[0],
+                points[i].values[1],
+                points[i].values[2],
+                points[i].values[3],
+                points[i].values[4],
+                0,0,0); 
+            __m256 point2 = _mm256_setr_ps(
+                permissiblePoints[j].values[0],
+                permissiblePoints[j].values[1],
+                permissiblePoints[j].values[2],
+                permissiblePoints[j].values[3],
+                permissiblePoints[j].values[4],
+                0,0,0); 
+            __m256 bool_table = _mm256_cmp_ps(point1,point2,_CMP_GE_OS);
+            result_m.m256 = _mm256_and_ps(bool_table,_mm256_set1_ps(1));
+            }else{
+                __m128 point1 = _mm_load_ps(points[i].values);
+                __m128 point2 = _mm_load_ps(permissiblePoints[j].values);
+                __m128 bool_table = _mm_cmp_ps(point1,point2,_CMP_GE_OS);
+                result_m.m128 = _mm_and_ps(bool_table, _mm_set1_ps(1));
+            }
+            // #pragma execution_frequency(very_high)
+            for (int i = 0; i < dim; i++)
+            {
+                counter += (int)result_m.v[i];
+            }
+
+            if (counter>=dim){ //all dimensions of point i are greater than or equal to point j, kick i out of permissiblePoint.
+                flag=0;
+                // break;
+                goto come_here;
+            } 
+
+        }
         
+        //if point i not beaten by know permissible points, then compare with all other points
         for (int j = 0; j < number; j++)
         {
             if(i==j) continue;
@@ -91,19 +134,22 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 
             if (counter>=dim){ //all dimensions of point i are greater than or equal to point j, kick i out of permissiblePoint.
                 flag=0;
-                break;
+                // break;
+                goto come_here;
             } 
             
         }
-
+        
         if(flag){
             // permissiblePointNum++;
             // #pragma omp ordered
             #pragma omp critical
             memcpy(&permissiblePoints[permissiblePointNum++],&points[i], sizeof(Point));
-            // printf("%d\n", points[i].ID);
+            // printf(" points[i].ID = %d  ", points[i].ID);
             // printf("permissiblePointNum = %d\n", permissiblePointNum);
         }
+        come_here:
+        continue;
         
     }
     printf("final permissiblePointNum = %d\n", permissiblePointNum);
