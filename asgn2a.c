@@ -23,38 +23,38 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 	Point * permissiblePoints = NULL;
 
 	//the following for-loop iterates the first 20 points that will be inputted by runtest.c
-    for(int i = 0; i < 20; i++)
-        printPoint(points[i], dim);
+    // for(int i = 0; i < 20; i++)
+    //     printPoint(points[i], dim);
 
 	/**********************************************************************************
 	 * Work here
 	 * *******************************************************************************/
     printf("\n--------------start---------------\n\n");
 
+    union Point_U{
+        __m128 m128;
+        __m256 m256;
+        float v[8];
+    };
+
 
     permissiblePoints= realloc(permissiblePoints, number*sizeof(Point));
 
-    
-
-    // omp_set_num_threads(4);
-    // #pragma omp parallel for ordered//reduction(+:permissiblePointNum )
+    omp_set_num_threads(4);
+    #pragma omp parallel for //reduction(+:permissiblePointNum )
     
     for (int i = 0; i < number; i++)
     {
         int flag = 1;
-        // int flag2 =0;
-        // int counter = 0;
         
         for (int j = 0; j < number; j++)
         {
-            if(i==j)
-                continue;
-            int counter = 0;
-            int flag2 = 0 ;
+            if(i==j) continue;
 
-            float result[8];
+            int counter = 0; //for counting numbers of greater of equal dimensions
+            union Point_U result_m; //for storing the bool table when comparing 2 points
 
-            if (dim >=5){
+            if (dim ==5){
             __m256 point1 = _mm256_setr_ps(
                 points[i].values[0],
                 points[i].values[1],
@@ -69,77 +69,31 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
                 points[j].values[3],
                 points[j].values[4],
                 0,0,0); 
-            __m256 bool_table = _mm256_cmp_ps(point1,point2,_CMP_GT_OS);
-
-            __m256 all_t = _mm256_setr_ps(1,1,1,1,1,1,1,1);
-
-            __m256 bool_bits = _mm256_and_ps(bool_table,all_t);
-            _mm256_store_ps(result, bool_bits);
-
+            __m256 bool_table = _mm256_cmp_ps(point1,point2,_CMP_GE_OS);
+            result_m.m256 = _mm256_and_ps(bool_table,_mm256_set1_ps(1));
             }else{
                 __m128 point1 = _mm_load_ps(points[i].values);
                 __m128 point2 = _mm_load_ps(points[j].values);
-                __m128 bool_table = _mm_cmp_ps(point1,point2,_CMP_GT_OS);
-                __m128 all_t = _mm_set1_ps(1);
-                __m128 bool_bits = _mm_and_ps(bool_table,all_t);
-                
-                _mm_store_ps(result, bool_bits);
+                __m128 bool_table = _mm_cmp_ps(point1,point2,_CMP_GE_OS);
+                result_m.m128 = _mm_and_ps(bool_table, _mm_set1_ps(1));
             }
 
-            // int counter = 0;
             for (int i = 0; i < dim; i++)
             {
-                counter += (int)result[i];
+                counter += (int)result_m.v[i];
             }
-            // printf("counter = %d\n",counter);
 
-            if (counter>=dim){
+            if (counter>=dim){ //all dimensions of point i are greater than or equal to point j, kick i out of permissiblePoint.
                 flag=0;
                 break;
-            }
-            
-            // for (int i = 0; i < dim; i++)
-            // {
-            //     printf("result[%d] = %f  ",i,result[i]);
-                
-            //     if(i==dim-1) printf("\n");
-            // }
-            
-
-
-            // for (int k = 0; k < dim; k++)
-            // {   
-
-            //     // printf("threadId = %d, i j k = %d %d %d\n", omp_get_thread_num(),i , j , k);  
-                
-            //     if (points[i].values[k] < points[j].values[k]){
-            //         flag2 = 0;
-            //         break;
-            //     }
-            //     else if (points[i].values[k] > points[j].values[k]){
-            //         counter++;
-            //         flag2=1;
-            //         // printf("ID %d counter = %d\n",i+1, counter);
-            //     }
-            //     else if(points[i].values[k] == points[j].values[k]){
-            //         counter++;
-            //         // flag2=1;
-            //     }
-                            
-            // }
-
-            // if (flag2 && counter==dim){
-            //     flag=0;
-            //     // printf("ID %d prevails ID %d, ID %d is kicked out\n", j+1, i+1, i+1);
-            //     break;
-            // } 
+            } 
             
         }
 
         if(flag){
             // permissiblePointNum++;
             // #pragma omp ordered
-            // #pragma omp critical
+            #pragma omp critical
             memcpy(&permissiblePoints[permissiblePointNum++],&points[i], sizeof(Point));
             // printf("%d\n", points[i].ID);
             // printf("permissiblePointNum = %d\n", permissiblePointNum);
