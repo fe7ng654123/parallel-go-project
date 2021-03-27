@@ -40,9 +40,14 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 
     permissiblePoints= realloc(permissiblePoints, number*sizeof(Point));
 
-    omp_set_num_threads(4);
-    #pragma omp parallel for //reduction(+:permissiblePointNum )
-    
+    // #pragma omp end distribute parallel for simd
+// #pragma simd_level(10)
+// for (i=1; i<1000; i++) { 
+// /* program code */
+
+// } 
+
+    #pragma omp parallel for num_threads(4) schedule(dynamic, 1024) //reduction(+:permissiblePointNum )
     for (int i = 0; i < number; i++)
     {
         int flag = 1;
@@ -54,6 +59,7 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
             int counter = 0; //for counting numbers of greater of equal dimensions
             union Point_U result_m; //for storing the bool table when comparing 2 points
 
+            // #pragma execution_frequency(very_high)
             if (dim ==5){
             __m256 point1 = _mm256_setr_ps(
                 points[i].values[0],
@@ -77,7 +83,7 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
                 __m128 bool_table = _mm_cmp_ps(point1,point2,_CMP_GE_OS);
                 result_m.m128 = _mm_and_ps(bool_table, _mm_set1_ps(1));
             }
-
+            // #pragma execution_frequency(very_high)
             for (int i = 0; i < dim; i++)
             {
                 counter += (int)result_m.v[i];
