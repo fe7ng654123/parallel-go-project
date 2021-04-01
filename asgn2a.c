@@ -183,13 +183,17 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 
     permissiblePoints= realloc(permissiblePoints, number*sizeof(Point));
 
+    Point * points_mid = malloc(number*sizeof(Point));
+    int points_mid_num = split_four(points,number,dim,points_mid);
+    printf("points_mid_num = %d \n", points_mid_num);
+
 
     Point * points_second = malloc(number*sizeof(Point));
     int points_second_num = 0;
-
-    points_second_num = split_four(points,number,dim,points_second);
-
+    points_second_num = split_four(points_mid,points_mid_num,dim,points_second);
     printf("points_second_num = %d \n", points_second_num);
+
+    
     
 
     permissiblePointNum =1;
