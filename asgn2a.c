@@ -40,23 +40,53 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 
     permissiblePoints= realloc(permissiblePoints, number*sizeof(Point));
 
-    // #pragma omp end distribute parallel for simd
-// #pragma simd_level(10)
-// for (i=1; i<1000; i++) { 
-// /* program code */
-
-// } 
-
-    #pragma omp parallel for num_threads(4) //schedule(dynamic, 1024) //reduction(+:permissiblePointNum )
-    for (int i = 0; i < number; i++)
+    struct __attribute__((aligned (64))) InThreadBuff
     {
-        int flag = 1;
+        int counter; //4 bytes
+        int padding[13]; //52 bytes
+        Point * permissiblePoints; //8 bytes  
+        //total 64 byte, fit in a cacheline
+    };
 
-        // compare candidta with known permissible points first, point i highly likely to be beaten by them.
+    // struct InThreadBuff* inTbuff =  malloc(sizeof(struct InThreadBuff)*4);
+    // for (int i = 0; i < 4; i++)
+    // {
+    //     inTbuff[i].counter=0;
+    //     inTbuff[i].permissiblePoints = malloc((number/4)*sizeof(Point));
+    //     printf("inTbuff[i] = %p\n", &inTbuff[i]);
+    // }
+
+    permissiblePointNum =1;
+    permissiblePoints[0].ID =1;
+    permissiblePoints[0].values = points[0].values;
+
+    // Point ** sub_result_points[4];
+    // for (int i = 0; i < 4; i++)
+    // {
+    //     sub_result_points[i] = malloc(number/4*sizeof(Point));
+    //     sub_result_points
+    // }
+    
+    
+
+    // #pragma omp parallel for num_threads(4) schedule(dynamic, number/4) //reduction(+:permissiblePointNum )
+    for (int i = 1; i < number; i++)
+    {
+
+        int flag = 1;
+        int i_inserted = 0;
+        int j_wins_index = -1;
+        
+        Point * tmpPoints = malloc(number*sizeof(Point));
+        int index = 0;
+        
+        // compare candidta with known permissible points
         for (int j = 0; j < permissiblePointNum; j++)
         {
+
             int counter = 0; //for counting numbers of greater of equal dimensions
             union Point_U result_m; //for storing the bool table when comparing 2 points
+
             if (dim ==5){
             __m256 point1 = _mm256_setr_ps(
                 points[i].values[0],
@@ -80,78 +110,72 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
                 __m128 bool_table = _mm_cmp_ps(point1,point2,_CMP_GE_OS);
                 result_m.m128 = _mm_and_ps(bool_table, _mm_set1_ps(1));
             }
-            // #pragma execution_frequency(very_high)
             for (int i = 0; i < dim; i++)
             {
                 counter += (int)result_m.v[i];
             }
 
-            if (counter>=dim){ //all dimensions of point i are greater than or equal to point j, kick i out of permissiblePoint.
-                flag=0;
+            if (counter>=dim){ //all dimensions of point i are greater than or equal to point j
+                flag = 0;
                 // break;
-                goto come_here;
-            } 
-
-        }
-        
-        //if point i not beaten by know permissible points, then compare with all other points
-        for (int j = 0; j < number; j++)
-        {
-            if(i==j) continue;
-
-            int counter = 0; //for counting numbers of greater of equal dimensions
-            union Point_U result_m; //for storing the bool table when comparing 2 points
-
-            // #pragma execution_frequency(very_high)
-            if (dim ==5){
-            __m256 point1 = _mm256_setr_ps(
-                points[i].values[0],
-                points[i].values[1],
-                points[i].values[2],
-                points[i].values[3],
-                points[i].values[4],
-                0,0,0); 
-            __m256 point2 = _mm256_setr_ps(
-                points[j].values[0],
-                points[j].values[1],
-                points[j].values[2],
-                points[j].values[3],
-                points[j].values[4],
-                0,0,0); 
-            __m256 bool_table = _mm256_cmp_ps(point1,point2,_CMP_GE_OS);
-            result_m.m256 = _mm256_and_ps(bool_table,_mm256_set1_ps(1));
-            }else{
-                __m128 point1 = _mm_load_ps(points[i].values);
-                __m128 point2 = _mm_load_ps(points[j].values);
-                __m128 bool_table = _mm_cmp_ps(point1,point2,_CMP_GE_OS);
-                result_m.m128 = _mm_and_ps(bool_table, _mm_set1_ps(1));
+                // printf("jjjjjjjjjjjjjjjj wins i =%d j =%d\n", i,j);
+                memcpy(&tmpPoints[index],&permissiblePoints[j], sizeof(Point));
+                index++;
+                j_wins_index =j;
+                break;
+                // can ignore the later ones and directly copy
+            } else if(counter==0 ){
+                // printf("iiiiiiiiiii wins i =%d j =%d\n", i,j);
+                flag = 0;
+                if (i_inserted ==0)
+                {
+                   memcpy(&tmpPoints[index],&points[i], sizeof(Point));
+                    index++;
+                }
+                i_inserted =1;
+            } else{
+                // printf("no one wins\n");
+                memcpy(&tmpPoints[index],&permissiblePoints[j], sizeof(Point));
+                index++;
             }
-            // #pragma execution_frequency(very_high)
-            for (int i = 0; i < dim; i++)
-            {
-                counter += (int)result_m.v[i];
-            }
-
-            if (counter>=dim){ //all dimensions of point i are greater than or equal to point j, kick i out of permissiblePoint.
-                flag=0;
-                // break;
-                goto come_here;
-            } 
             
         }
-        
-        if(flag){
-            // permissiblePointNum++;
-            // #pragma omp ordered
-            #pragma omp critical
-            memcpy(&permissiblePoints[permissiblePointNum++],&points[i], sizeof(Point));
-            // printf(" points[i].ID = %d  ", points[i].ID);
-            // printf("permissiblePointNum = %d\n", permissiblePointNum);
+
+        if(j_wins_index != -1){
+            for (int j = (j_wins_index+1); j < permissiblePointNum; j++)
+            {
+                memcpy(&tmpPoints[index],&permissiblePoints[j], sizeof(Point));
+                index++;
+            }
         }
-        come_here:
-        continue;
+
+        if(flag){
+            memcpy(&permissiblePoints[permissiblePointNum],&points[i], sizeof(Point));
+            permissiblePointNum++;
+        } else{
+            free(permissiblePoints);
+            permissiblePoints = tmpPoints;
+            permissiblePointNum=index;
+        }
+
+        // for (int i = 0; i < permissiblePointNum; i++)
+        // {
+        //     printf("id = %d ", permissiblePoints[i].ID);
+        // }
+        // printf("\n");
+        
+    
         
     }
+    
+
+    // for (int i = 0; i < 4; i++)
+    // {
+    //     printf("inTbuff[%d].counter = %d\n",i,inTbuff[i].counter); 
+    //     permissiblePointNum+=inTbuff[i].counter;
+    //     // inTbuff[i].permissiblePoints = malloc((number/4)*sizeof(Point));
+    // }
+
     printf("final permissiblePointNum = %d\n", permissiblePointNum);
     
     
