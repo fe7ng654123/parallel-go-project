@@ -121,7 +121,7 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
     int count_total =0;
 
 
-    #pragma omp parallel for num_threads(4) //schedule(static,1)
+    #pragma omp parallel for num_threads(thread_number) //schedule(static,1)
     for (int i =0; i < 4; i++)
     {
         points_split[i] = malloc(number/4*sizeof(Point));
