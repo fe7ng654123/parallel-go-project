@@ -17,7 +17,7 @@ union Point_U{
 };
 
 
-int split_four_v2(Point *points, int number, int dim, Point *permissiblePoints_result ){
+int get_p_points(Point *points, int number, int dim, Point *permissiblePoints_result ){
 
     int permissiblePointNum =1;
     Point * permissiblePoints = malloc(sizeof(Point)*number);
@@ -126,30 +126,25 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
     {
         points_split[i] = malloc(number/4*sizeof(Point));
         memcpy(points_split[i],&points[(number/4)*i], number/4*sizeof(Point));
-        counter[i]= split_four_v2(points_split[i],number/4,dim,points_split[i]);
+        counter[i]= get_p_points(points_split[i],number/4,dim,points_split[i]);
         printf("counter[%d] = %d\n",i,counter[i]);
         #pragma omp atomic
         count_total += counter[i];
     }
     
-    Point *total = malloc(sizeof(Point)* count_total);
+    Point *merged_p_points = malloc(sizeof(Point)* count_total);
     int tmp=0;
     for (int i = 0; i < 4; i++)
     {
-        memcpy(total+tmp,points_split[i], counter[i] * sizeof(Point));
+        memcpy(merged_p_points+tmp,points_split[i], counter[i] * sizeof(Point));
         tmp += counter[i];
     }
 
     
-    permissiblePointNum = split_four_v2(total,count_total,dim,permissiblePoints);
+    permissiblePointNum = get_p_points(merged_p_points,count_total,dim,permissiblePoints);
 
     printf("final permissiblePointNum = %d\n", permissiblePointNum);
     
-    
-    // for (int i = 0; i < permissiblePointNum; i++)
-    // {
-    //     printf("ID = %d\n", permissiblePoints[i].ID);
-    // }
     
 
     printf("\n--------------end---------------\n\n");
