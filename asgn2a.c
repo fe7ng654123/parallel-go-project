@@ -17,14 +17,6 @@ union Point_U{
     float v[8];
 };
 
-struct  InThreadPara
-{
-    int counter; //4 bytes
-    int padding[13]; //52 bytes
-    Point * points; //8 bytes  
-    //total 64 byte, fit in a cacheline
-};
-
 
 int split_four_v2(Point *points, int number, int dim, Point *permissiblePoints_result ){
 
@@ -34,9 +26,8 @@ int split_four_v2(Point *points, int number, int dim, Point *permissiblePoints_r
 
     for (int i = 1; i < number; i++)
     {
-        int flag = 1;
-        int i_inserted = 0;
-        int j_wins_index = -1;
+        int permissible = 1;
+        int i_inserted_index = -1;
         
         Point * tmpPoints = malloc(number*sizeof(Point));
         int index = 0;
@@ -77,55 +68,41 @@ int split_four_v2(Point *points, int number, int dim, Point *permissiblePoints_r
             }
 
             if (counter>=dim){ //all dimensions of point i are greater than or equal to point j
-                flag = 0;
-                // break;
-                // printf("jjjjjjjjjjjjjjjj wins i =%d j =%d\n", i,j);
-                memcpy(&tmpPoints[index],&permissiblePoints[j], sizeof(Point));
-                index++;
-                j_wins_index =j;
-                break;
-                // can ignore the later ones and directly copy
+                permissible = 0;
+                break; 
             } else if(counter==0 ){
-                // printf("iiiiiiiiiii wins i =%d j =%d\n", i,j);
-                flag = 0;
-                if (i_inserted ==0)
+                if (i_inserted_index == -1)
                 {
-                   memcpy(&tmpPoints[index],&points[i], sizeof(Point));
+                    memcpy(&tmpPoints[index],&points[i], sizeof(Point));
+                    i_inserted_index = index;
                     index++;
                 }
-                i_inserted =1;
             } else{
-                // printf("no one wins\n");
                 memcpy(&tmpPoints[index],&permissiblePoints[j], sizeof(Point));
                 index++;
             }
             
         }
 
-        if(j_wins_index != -1){
-            for (int j = (j_wins_index+1); j < permissiblePointNum; j++)
-            {
-                memcpy(&tmpPoints[index],&permissiblePoints[j], sizeof(Point));
-                index++;
-            }
-        }
 
-        if(flag){
-            memcpy(&permissiblePoints[permissiblePointNum],&points[i], sizeof(Point));
-            permissiblePointNum++;
+        if(permissible){
+            if(i_inserted_index ==-1){
+                memcpy(&permissiblePoints[permissiblePointNum],&points[i], sizeof(Point));
+                permissiblePointNum++;
+                free(tmpPoints);
+            }else{
+                free(permissiblePoints);
+                permissiblePoints = tmpPoints;
+                permissiblePointNum = index;
+            }
+            
         } else{
-            free(permissiblePoints);
-            permissiblePoints = tmpPoints;
-            permissiblePointNum = index;
+            free(tmpPoints);
         }
 
     }
+    
     memcpy(permissiblePoints_result,permissiblePoints, permissiblePointNum*sizeof(Point));
-    // for (int i = 0; i < permissiblePointNum; i++)
-    // {
-    //     memcpy(&permissiblePoints_result[i],&permissiblePoints[i], sizeof(Point));
-    //     // printf("permissiblePoints[] = %d\n", permissiblePoints[i].ID);
-    // }
     return permissiblePointNum;
 }
 
@@ -152,57 +129,30 @@ int asgn2a(Point * points, Point ** pPermissiblePoints, int number, int dim, int
 
     permissiblePoints= realloc(permissiblePoints, number*sizeof(Point));
 
-    int split_num = 16;
-    Point **points_split = malloc(split_num * sizeof(Point *));
-    int counter[16]={0};
+    Point **points_split = malloc(number * sizeof(Point *));
+    int counter[4]={0};
     int count_total =0;
 
-    // for (int i = 0; i < 4; i++)
-    // {
-    //     points_split[i] = malloc(number/4*sizeof(Point));
-    //     memcpy(points_split[i],&points[(number/4)*i], number/4*sizeof(Point));
-    // }
 
-    #pragma omp parallel for num_threads(4) schedule(static)
-    for (int i =0; i < split_num; i++)
+    #pragma omp parallel for num_threads(4) //schedule(static,1)
+    for (int i =0; i < 4; i++)
     {
-        points_split[i] = malloc(number/split_num*sizeof(Point));
-        memcpy(points_split[i],&points[(number/split_num)*i], number/split_num*sizeof(Point));
-        counter[i]= split_four_v2(points_split[i],number/split_num,dim,points_split[i]);
+        points_split[i] = malloc(number/4*sizeof(Point));
+        memcpy(points_split[i],&points[(number/4)*i], number/4*sizeof(Point));
+        counter[i]= split_four_v2(points_split[i],number/4,dim,points_split[i]);
         printf("counter[%d] = %d\n",i,counter[i]);
-        // #pragma omp atomic
-        // count_total += counter[i];
-    }
-
-    int split_num_second = 4;
-
-    Point **points_split_second = malloc(split_num_second * sizeof(Point *));
-    int counter_second[4]={0};
-
-    #pragma omp parallel for num_threads(4) schedule(static)
-    for (int i =0; i < split_num_second; i++)
-    {
-        points_split_second[i] = malloc(number/4*sizeof(Point));
-        int tmp =0;
-        for (int j = 0; j < 4; j++)
-        {
-            Point* tmp_pointer = points_split_second[i];
-            memcpy(tmp_pointer+tmp,points_split[i*4+j], counter[i*4+j]*sizeof(Point));
-            tmp+=counter[i*4+j];
-        }
-        counter_second[i]= split_four_v2(points_split_second[i],tmp,dim,points_split_second[i]);
-        printf("counter_second[%d] = %d\n",i,counter_second[i]);
-        #pragma omp atomics
-        count_total += counter_second[i];
+        #pragma omp atomic
+        count_total += counter[i];
     }
     
     Point *total = malloc(sizeof(Point)* count_total);
     int tmp=0;
-    for (int i = 0; i < split_num_second; i++)
+    for (int i = 0; i < 4; i++)
     {
-        memcpy(total+tmp,points_split_second[i], counter_second[i] * sizeof(Point));
-        tmp += counter_second[i];
+        memcpy(total+tmp,points_split[i], counter[i] * sizeof(Point));
+        tmp += counter[i];
     }
+
     
     permissiblePointNum = split_four_v2(total,count_total,dim,permissiblePoints);
 
