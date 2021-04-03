@@ -13,8 +13,7 @@
 
 union Point_U{
     __m128 m128;
-    __m256 m256;
-    float v[8];
+    float v[5];
 };
 
 
@@ -26,11 +25,11 @@ int split_four_v2(Point *points, int number, int dim, Point *permissiblePoints_r
 
     for (int i = 1; i < number; i++)
     {
-        int permissible = 1;
-        int i_inserted_index = -1;
+        int permissible = 1; //assume new point is permissible
+        int i_inserted_index = 0; //insert i if i preveils a know permissible point
         
-        Point * tmpPoints = malloc(number*sizeof(Point));
-        int index = 0;
+        Point * tmpPoints = malloc(number*sizeof(Point)); //for store updated P points
+        int index = 0; // index for tmpPoints
         
         // compare candidta with known permissible points
         for (int j = 0; j < permissiblePointNum; j++)
@@ -39,29 +38,17 @@ int split_four_v2(Point *points, int number, int dim, Point *permissiblePoints_r
             int counter = 0; //for counting numbers of greater of equal dimensions
             union Point_U result_m; //for storing the bool table when comparing 2 points
 
-            if (dim ==5){
-            __m256 point1 = _mm256_setr_ps(
-                points[i].values[0],
-                points[i].values[1],
-                points[i].values[2],
-                points[i].values[3],
-                points[i].values[4],
-                0,0,0); 
-            __m256 point2 = _mm256_setr_ps(
-                permissiblePoints[j].values[0],
-                permissiblePoints[j].values[1],
-                permissiblePoints[j].values[2],
-                permissiblePoints[j].values[3],
-                permissiblePoints[j].values[4],
-                0,0,0); 
-            __m256 bool_table = _mm256_cmp_ps(point1,point2,_CMP_GE_OS);
-            result_m.m256 = _mm256_and_ps(bool_table,_mm256_set1_ps(1));
+            __m128 point1 = _mm_load_ps(points[i].values);
+            __m128 point2 = _mm_load_ps(permissiblePoints[j].values);
+            __m128 bool_table = _mm_cmp_ps(point1,point2,_CMP_GE_OS);
+            result_m.m128 = _mm_and_ps(bool_table, _mm_set1_ps(1));
+
+            if(dim == 5 && points[i].values[4]>=permissiblePoints[j].values[4]){
+                result_m.v[4] = 1.0;
             }else{
-                __m128 point1 = _mm_load_ps(points[i].values);
-                __m128 point2 = _mm_load_ps(permissiblePoints[j].values);
-                __m128 bool_table = _mm_cmp_ps(point1,point2,_CMP_GE_OS);
-                result_m.m128 = _mm_and_ps(bool_table, _mm_set1_ps(1));
+                result_m.v[4] =0;
             }
+            
             for (int i = 0; i < dim; i++)
             {
                 counter += (int)result_m.v[i];
@@ -70,11 +57,11 @@ int split_four_v2(Point *points, int number, int dim, Point *permissiblePoints_r
             if (counter>=dim){ //all dimensions of point i are greater than or equal to point j
                 permissible = 0;
                 break; 
-            } else if(counter==0 ){
-                if (i_inserted_index == -1)
+            } else if(counter==0 ){ //i preveils j, replace j with i
+                if (i_inserted_index == 0)
                 {
                     memcpy(&tmpPoints[index],&points[i], sizeof(Point));
-                    i_inserted_index = index;
+                    i_inserted_index = 1;
                     index++;
                 }
             } else{
@@ -86,7 +73,7 @@ int split_four_v2(Point *points, int number, int dim, Point *permissiblePoints_r
 
 
         if(permissible){
-            if(i_inserted_index ==-1){
+            if(!i_inserted_index){
                 memcpy(&permissiblePoints[permissiblePointNum],&points[i], sizeof(Point));
                 permissiblePointNum++;
                 free(tmpPoints);
